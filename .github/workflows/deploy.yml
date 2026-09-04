@@ -1,0 +1,93 @@
+name: CI/CD Deploy to AWS Lightsail
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Test & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript Check
+        run: npx tsc --noEmit
+
+      - name: Production Build
+        run: npm run build
+
+  deploy:
+    name: Deploy to Lightsail VPS
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail.pem
+          chmod 600 ~/.ssh/lightsail.pem
+          ssh-keyscan -H "${{ secrets.LIGHTSAIL_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy on AWS Lightsail
+        env:
+          HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          USER: ${{ secrets.LIGHTSAIL_USERNAME }}
+          PORT: ${{ secrets.APP_PORT }}
+          DOMAIN: ${{ secrets.APP_DOMAIN }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          echo "🚀 Connecting to $USER@$HOST to deploy commit $COMMIT_SHA..."
+          ssh -i ~/.ssh/lightsail.pem "$USER@$HOST" bash -s << REMOTE_EOF
+            set -Eeuo pipefail
+            APP_DIR="/home/ubuntu/apps/nivaran"
+            mkdir -p /home/ubuntu/apps
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "Cloning repository..."
+              git clone https://github.com/anurag3407/nivaran.git "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            echo "Fetching latest changes..."
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
+
+            chmod +x scripts/deploy-server.sh
+            export PORT="${PORT}"
+            export DOMAIN="${DOMAIN}"
+            ./scripts/deploy-server.sh
+          REMOTE_EOF
+
+      - name: Post-Deploy Verification
+        run: |
+          echo "🔍 Verifying deployment at https://${{ secrets.APP_DOMAIN }}..."
+          sleep 5
+          HTTP_STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" "https://${{ secrets.APP_DOMAIN }}/" || true)
+          echo "HTTP Response: $HTTP_STATUS"
+          if [[ "$HTTP_STATUS" =~ ^(200|301|302|307|308)$ ]]; then
+            echo "✅ Domain is live and answering correctly!"
+          else
+            echo "⚠️ Non-200/30x status returned, check server logs."
+          fi
