@@ -49,12 +49,14 @@ else
   grep -q "^NEXT_PUBLIC_APP_URL=" "${APP_DIR}/.env" && sed -i "s|^NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL=https://${DOMAIN}|" "${APP_DIR}/.env" || echo "NEXT_PUBLIC_APP_URL=https://${DOMAIN}" >> "${APP_DIR}/.env"
 fi
 
+# Ensure pnpm supply-chain policy doesn't reject recent packages
+echo "minimum-release-age=0" > "${APP_DIR}/.npmrc"
+
 # 3. Install Dependencies
 echo "📦 Installing project dependencies..."
 if command -v pnpm &>/dev/null; then
-  pnpm install --frozen-lockfile --config.minimum-release-age=0 --dangerously-allow-all-builds || \
-  pnpm install --frozen-lockfile --config.minimum-release-age=0 --ignore-scripts || \
-  pnpm install --config.minimum-release-age=0 --dangerously-allow-all-builds || \
+  pnpm install --frozen-lockfile --dangerously-allow-all-builds || \
+  pnpm install --dangerously-allow-all-builds || \
   npm install
 elif command -v npm &>/dev/null; then
   npm install
@@ -62,11 +64,7 @@ fi
 
 # 4. Build Next.js Production Bundle
 echo "🏗️ Building Next.js application..."
-if command -v pnpm &>/dev/null; then
-  pnpm run build
-else
-  npm run build
-fi
+npx next build
 
 # 5. Start / Reload with PM2
 echo "⚡ Starting/Reloading process in PM2..."
