@@ -52,9 +52,12 @@ fi
 # 3. Install Dependencies
 echo "📦 Installing project dependencies..."
 if command -v pnpm &>/dev/null; then
-  pnpm install --frozen-lockfile --config.minimum-release-age=0 || pnpm install --config.minimum-release-age=0 || npm install --production=false
+  pnpm install --frozen-lockfile --config.minimum-release-age=0 --dangerously-allow-all-builds || \
+  pnpm install --frozen-lockfile --config.minimum-release-age=0 --ignore-scripts || \
+  pnpm install --config.minimum-release-age=0 --dangerously-allow-all-builds || \
+  npm install
 elif command -v npm &>/dev/null; then
-  npm install --production=false
+  npm install
 fi
 
 # 4. Build Next.js Production Bundle
