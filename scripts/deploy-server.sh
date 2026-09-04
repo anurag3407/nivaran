@@ -59,7 +59,11 @@ fi
 
 # 4. Build Next.js Production Bundle
 echo "🏗️ Building Next.js application..."
-npm run build
+if command -v pnpm &>/dev/null; then
+  pnpm run build
+else
+  npm run build
+fi
 
 # 5. Start / Reload with PM2
 echo "⚡ Starting/Reloading process in PM2..."
