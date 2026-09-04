@@ -55,11 +55,12 @@ echo "minimum-release-age=0" > "${APP_DIR}/.npmrc"
 # 3. Install Dependencies
 echo "📦 Installing project dependencies..."
 if command -v pnpm &>/dev/null; then
-  pnpm install --frozen-lockfile --dangerously-allow-all-builds || \
-  pnpm install --dangerously-allow-all-builds || \
-  npm install
+  pnpm config set minimum-release-age 0 2>/dev/null || true
+  pnpm install --frozen-lockfile --config.minimum-release-age=0 --dangerously-allow-all-builds || \
+  pnpm install --config.minimum-release-age=0 --dangerously-allow-all-builds || \
+  (rm -rf node_modules && npm install)
 elif command -v npm &>/dev/null; then
-  npm install
+  (rm -rf node_modules && npm install)
 fi
 
 # 4. Build Next.js Production Bundle
