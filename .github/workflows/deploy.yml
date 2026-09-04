@@ -63,8 +63,10 @@ jobs:
           COMMIT_SHA: ${{ github.sha }}
         run: |
           echo "🚀 Connecting to $USER@$HOST to deploy commit $COMMIT_SHA..."
-          ssh -i ~/.ssh/lightsail.pem "$USER@$HOST" bash -s << REMOTE_EOF
+          ssh -i ~/.ssh/lightsail.pem "$USER@$HOST" bash -s -- "${PORT}" "${DOMAIN}" << 'REMOTE_EOF'
             set -Eeuo pipefail
+            PORT="${1:-3001}"
+            DOMAIN="${2:-nivaran.sayalabs.in}"
             APP_DIR="/home/ubuntu/apps/nivaran"
             mkdir -p /home/ubuntu/apps
 
